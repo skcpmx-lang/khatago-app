@@ -49,6 +49,12 @@ interface KhataGoDao {
     @Update
     suspend fun updateShop(shop: ShopEntity)
 
+    @Query("DELETE FROM shops WHERE id = :shopId")
+    suspend fun deleteShop(shopId: Long)
+
+    @Query("UPDATE shops SET archived = :archived WHERE id = :shopId")
+    suspend fun setShopArchived(shopId: Long, archived: Boolean)
+
     @Query("SELECT * FROM loans ORDER BY firstDueDate ASC, id DESC")
     fun observeLoans(): Flow<List<LoanEntity>>
 
@@ -75,6 +81,15 @@ interface KhataGoDao {
 
     @Update
     suspend fun updateLoanInstallments(items: List<LoanInstallmentEntity>)
+
+    @Update
+    suspend fun updateLoan(loan: LoanEntity)
+
+    @Query("DELETE FROM loans WHERE id = :loanId")
+    suspend fun deleteLoan(loanId: Long)
+
+    @Query("UPDATE loans SET archived = :archived WHERE id = :loanId")
+    suspend fun setLoanArchived(loanId: Long, archived: Boolean)
 
     @Query("SELECT * FROM emi_purchases ORDER BY firstDueDate ASC, id DESC")
     fun observeEmiPurchases(): Flow<List<EmiPurchaseEntity>>
@@ -103,6 +118,15 @@ interface KhataGoDao {
     @Update
     suspend fun updateEmiInstallments(items: List<EmiInstallmentEntity>)
 
+    @Update
+    suspend fun updateEmiPurchase(emi: EmiPurchaseEntity)
+
+    @Query("DELETE FROM emi_purchases WHERE id = :emiId")
+    suspend fun deleteEmi(emiId: Long)
+
+    @Query("UPDATE emi_purchases SET archived = :archived WHERE id = :emiId")
+    suspend fun setEmiArchived(emiId: Long, archived: Boolean)
+
     @Query("SELECT * FROM people ORDER BY name ASC")
     fun observePeople(): Flow<List<PersonEntity>>
 
@@ -124,6 +148,15 @@ interface KhataGoDao {
     @Insert
     suspend fun insertPersonalSettlement(settlement: PersonalSettlementEntity): Long
 
+    @Update
+    suspend fun updatePersonalDebt(debt: PersonalDebtEntity)
+
+    @Query("DELETE FROM personal_debts WHERE id = :debtId")
+    suspend fun deletePersonalDebt(debtId: Long)
+
+    @Query("UPDATE personal_debts SET archived = :archived WHERE id = :debtId")
+    suspend fun setPersonalDebtArchived(debtId: Long, archived: Boolean)
+
     @Query("SELECT * FROM income ORDER BY occurredAt DESC, id DESC")
     fun observeIncome(): Flow<List<IncomeEntity>>
 
@@ -135,6 +168,18 @@ interface KhataGoDao {
 
     @Insert
     suspend fun insertExpense(item: ExpenseEntity): Long
+
+    @Update
+    suspend fun updateIncome(item: IncomeEntity)
+
+    @Update
+    suspend fun updateExpense(item: ExpenseEntity)
+
+    @Query("DELETE FROM income WHERE id = :incomeId")
+    suspend fun deleteIncome(incomeId: Long)
+
+    @Query("DELETE FROM expenses WHERE id = :expenseId")
+    suspend fun deleteExpense(expenseId: Long)
 
     @Query("SELECT * FROM custom_categories ORDER BY kind ASC, name ASC")
     fun observeCustomCategories(): Flow<List<CustomCategoryEntity>>
@@ -150,6 +195,15 @@ interface KhataGoDao {
 
     @Insert
     suspend fun insertTransactions(transactions: List<FinancialTransactionEntity>)
+
+    @Query("DELETE FROM financial_transactions WHERE id = :transactionId")
+    suspend fun deleteTransaction(transactionId: Long)
+
+    @Query("DELETE FROM financial_transactions WHERE relatedEntityType = :type AND relatedEntityId = :relatedId")
+    suspend fun deleteTransactionsByRelation(type: String, relatedId: Long)
+
+    @Query("SELECT * FROM financial_transactions WHERE id = :transactionId LIMIT 1")
+    suspend fun getTransactionById(transactionId: Long): FinancialTransactionEntity?
 
     @Query("DELETE FROM user_profile")
     suspend fun clearUserProfile()

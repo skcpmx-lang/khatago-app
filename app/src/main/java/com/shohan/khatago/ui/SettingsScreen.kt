@@ -7,14 +7,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.shohan.khatago.data.preferences.AppPreferencesState
-import com.shohan.khatago.ui.components.KhataEmptyState
 
 @Composable
 fun SettingsScreen(
     preferences: AppPreferencesState,
+    hasPin: Boolean,
     onNotificationsChanged: (Boolean) -> Unit,
     onAppLockChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
+    onSetPin: () -> Unit,
+    onClearPin: () -> Unit,
     onCreateBackup: () -> Unit,
     onRestoreBackup: () -> Unit,
     onExportCsv: () -> Unit,
@@ -28,6 +30,7 @@ fun SettingsScreen(
         item { Text("Settings", style = MaterialTheme.typography.headlineMedium) }
         item {
             SettingsSection("Data & Backup") {
+                Text("Backup files may contain sensitive financial data. Keep them private.", style = MaterialTheme.typography.bodyMedium)
                 SettingsButton("Create Backup", onCreateBackup)
                 SettingsButton("Restore Backup", onRestoreBackup)
             }
@@ -41,12 +44,17 @@ fun SettingsScreen(
         item {
             SettingsSection("Notifications") {
                 SettingsToggle("Payment Reminders", preferences.notificationsEnabled, onNotificationsChanged)
+                Text("KhataGo only reminds you about upcoming, due today and overdue payments.", style = MaterialTheme.typography.bodyMedium)
             }
         }
         item {
             SettingsSection("Security") {
                 SettingsToggle("App Lock", preferences.appLockEnabled, onAppLockChanged)
                 SettingsToggle("Biometric Unlock", preferences.biometricEnabled, onBiometricChanged)
+                SettingsButton(if (hasPin) "Change PIN" else "Set PIN", onSetPin)
+                if (hasPin) {
+                    OutlinedButton(onClick = onClearPin, modifier = Modifier.fillMaxWidth()) { Text("Remove PIN") }
+                }
             }
         }
         item {

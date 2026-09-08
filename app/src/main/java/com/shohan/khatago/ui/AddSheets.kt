@@ -43,6 +43,7 @@ fun AddEntrySheet(
             AddSheetType.SHOP_CREDIT -> ShopCreditForm(onDismiss, onSaveShopCredit, onMessage)
             AddSheetType.LOAN -> LoanForm(onDismiss, onSaveLoan, onMessage)
             AddSheetType.EMI -> EmiForm(onDismiss, onSaveEmi, onMessage)
+            AddSheetType.PERSONAL_DEBT -> PersonalDirectionChooser(onDismiss, onSavePersonalDebt, onMessage)
             AddSheetType.PERSONAL_BORROWED -> PersonalDebtForm(PersonalDirection.BORROWED, onDismiss, onSavePersonalDebt, onMessage)
             AddSheetType.PERSONAL_LENT -> PersonalDebtForm(PersonalDirection.LENT, onDismiss, onSavePersonalDebt, onMessage)
             AddSheetType.INCOME -> IncomeForm(categories, onDismiss, onSaveIncome, onMessage)
@@ -134,6 +135,25 @@ private fun ShopCreditForm(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PersonalDirectionChooser(
+    onDismiss: () -> Unit,
+    onSave: suspend (AddPersonalDebtInput) -> Unit,
+    onMessage: (String) -> Unit
+) {
+    var direction by rememberSaveable { mutableStateOf(PersonalDirection.BORROWED) }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            FilterChip(selected = direction == PersonalDirection.BORROWED, onClick = { direction = PersonalDirection.BORROWED }, label = { Text("Borrowed") })
+            FilterChip(selected = direction == PersonalDirection.LENT, onClick = { direction = PersonalDirection.LENT }, label = { Text("Lent") })
+        }
+        PersonalDebtForm(direction = direction, onDismiss = onDismiss, onSave = onSave, onMessage = onMessage)
     }
 }
 

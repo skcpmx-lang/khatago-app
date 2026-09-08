@@ -19,6 +19,7 @@ import com.shohan.khatago.ui.theme.KhataBackground
 import com.shohan.khatago.ui.theme.KhataPrimary
 import com.shohan.khatago.ui.theme.KhataPrimaryContainer
 import com.shohan.khatago.ui.theme.KhataTextSecondary
+import kotlinx.coroutines.launch
 
 private val onboardingPages = listOf(
     "KhataGo" to "All your finances, in one place.",
@@ -30,22 +31,34 @@ private val onboardingPages = listOf(
 @Composable
 fun OnboardingScreen(onSkip: () -> Unit, onContinue: () -> Unit) {
     val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
+    val scope = rememberCoroutineScope()
+    val isLastPage = pagerState.currentPage == onboardingPages.lastIndex
+
     Column(
         modifier = Modifier.fillMaxSize().background(KhataBackground).padding(horizontal = 24.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Spacer(Modifier.height(12.dp))
-            Image(
-                painter = painterResource(R.drawable.ic_khatago_mark),
-                contentDescription = "KhataGo mark",
-                modifier = Modifier.size(64.dp)
-            )
-            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) { page ->
-                val item = onboardingPages[page]
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(item.first, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-                    Text(item.second, style = MaterialTheme.typography.bodyLarge, color = KhataTextSecondary)
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
+            ) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_khatago_mark),
+                        contentDescription = "KhataGo mark",
+                        modifier = Modifier.size(68.dp)
+                    )
+                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp)) { page ->
+                        val item = onboardingPages[page]
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(item.first, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                            Text(item.second, style = MaterialTheme.typography.bodyLarge, color = KhataTextSecondary)
+                        }
+                    }
                 }
             }
         }
@@ -62,8 +75,15 @@ fun OnboardingScreen(onSkip: () -> Unit, onContinue: () -> Unit) {
                     )
                 }
             }
-            Button(onClick = onContinue, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                Text("Get Started")
+            Button(
+                onClick = {
+                    if (isLastPage) onContinue()
+                    else scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(if (isLastPage) "Get Started" else "Continue")
             }
             TextButton(onClick = onSkip, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Skip") }
         }

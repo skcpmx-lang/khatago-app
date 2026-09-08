@@ -4,14 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.shohan.khatago.core.Money
 import com.shohan.khatago.data.KhataGoRepository
 import com.shohan.khatago.domain.PaymentStatus
-import com.shohan.khatago.core.Money
 import com.shohan.khatago.ui.components.KhataEmptyState
 import com.shohan.khatago.ui.components.KhataSectionHeader
 import com.shohan.khatago.ui.components.KhataStatusBadge
@@ -22,20 +21,25 @@ fun AccountDetailScreen(
     type: String,
     id: Long,
     onBack: () -> Unit,
-    onAddPayment: (String, Long) -> Unit
+    onAddPayment: (String, Long) -> Unit,
+    onArchive: (String, Long) -> Unit,
+    onDelete: (String, Long) -> Unit
 ) {
-    when (type) {
+    var showDelete by remember { mutableStateOf(false) }
+    var showArchive by remember { mutableStateOf(false) }
+    val canonicalType = if (type.startsWith("PERSONAL")) "PERSONAL" else type
+
+    when (canonicalType) {
         "SHOP" -> {
             val detail by repository.observeShopDetail(id).collectAsStateWithLifecycle(initialValue = null)
-            Scaffold(topBar = {
-                TopAppBar(
-                    title = { Text(detail?.shop?.name ?: "Shop") },
-                    navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
-                    actions = { TextButton(onClick = { onAddPayment("SHOP", id) }) { Text("Add Payment") } }
-                )
-            }) { padding ->
-                val state = detail
-                if (state == null) return@Scaffold
+            DetailScaffold(
+                title = detail?.shop?.name ?: "Shop",
+                onBack = onBack,
+                onAddPayment = { onAddPayment("SHOP", id) },
+                onArchive = { showArchive = true },
+                onDelete = { showDelete = true }
+            ) { padding ->
+                val state = detail ?: return@DetailScaffold
                 LazyColumn(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp + padding.calculateTopPadding(), bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -77,18 +81,46 @@ fun AccountDetailScreen(
         }
         "LOAN" -> {
             val detail by repository.observeLoanDetail(id).collectAsStateWithLifecycle(initialValue = null)
-            DetailScaffold(title = detail?.loan?.name ?: "Loan", onBack = onBack, onAddPayment = { onAddPayment("LOAN", id) }) { padding ->
+            DetailScaffold(
+                title = detail?.loan?.name ?: "Loan",
+                onBack = onBack,
+                onAddPayment = { onAddPayment("LOAN", id) },
+                onArchive = { showArchive = true },
+                onDelete = { showDelete = true }
+            ) { padding ->
                 val state = detail ?: return@DetailScaffold
                 LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp + padding.calculateTopPadding(), bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item { SummaryCard(total = state.loan.totalPayableMinor, paid = state.totalPaidMinor, remaining = state.remainingMinor) }
                     item { KhataSectionHeader("Schedule") }
                     items(state.installments) { installment -> InstallmentCard(installment.number, installment.dueDate, installment.scheduledAmountMinor, installment.remainingAmountMinor, installment.status) }
+                    item { KhataSectionHeader("Payment History") }
+                    if (state.payments.isEmpty()) {
+                        item { KhataEmptyState("No payments yet", "Add a payment to start paying down this loan.") }
+                    } else {
+                        items(state.payments) { payment ->
+                            ElevatedCard {
+                                Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(payment.paidAt.substring(0, 10), style = MaterialTheme.typography.titleMedium)
+                                        Text(payment.method, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    Text(Money.format(payment.amountMinor), style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
         "EMI" -> {
             val detail by repository.observeEmiDetail(id).collectAsStateWithLifecycle(initialValue = null)
-            DetailScaffold(title = detail?.emi?.productName ?: "EMI", onBack = onBack, onAddPayment = { onAddPayment("EMI", id) }) { padding ->
+            DetailScaffold(
+                title = detail?.emi?.productName ?: "EMI",
+                onBack = onBack,
+                onAddPayment = { onAddPayment("EMI", id) },
+                onArchive = { showArchive = true },
+                onDelete = { showDelete = true }
+            ) { padding ->
                 val state = detail ?: return@DetailScaffold
                 LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp + padding.calculateTopPadding(), bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item { SummaryCard(total = state.emi.totalPayableMinor, paid = state.totalPaidMinor, remaining = state.remainingMinor) }
@@ -115,11 +147,17 @@ fun AccountDetailScreen(
         }
         else -> {
             val detail by repository.observePersonalDebtDetail(id).collectAsStateWithLifecycle(initialValue = null)
-            DetailScaffold(title = detail?.person?.name ?: "Personal Debt", onBack = onBack, onAddPayment = { onAddPayment("PERSONAL", id) }) { padding ->
+            DetailScaffold(
+                title = detail?.person?.name ?: "Personal Debt",
+                onBack = onBack,
+                onAddPayment = { onAddPayment("PERSONAL", id) },
+                onArchive = { showArchive = true },
+                onDelete = { showDelete = true }
+            ) { padding ->
                 val state = detail ?: return@DetailScaffold
                 LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp + padding.calculateTopPadding(), bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     item { SummaryCard(total = state.debt.amountMinor, paid = state.settledMinor, remaining = state.remainingMinor) }
-                    item { KhataSectionHeader("Repayments") }
+                    item { KhataSectionHeader("Repayment History") }
                     if (state.settlements.isEmpty()) {
                         item { KhataEmptyState("No payments yet", "Add a payment to start tracking repayments.") }
                     } else {
@@ -139,6 +177,25 @@ fun AccountDetailScreen(
             }
         }
     }
+
+    if (showArchive) {
+        AlertDialog(
+            onDismissRequest = { showArchive = false },
+            title = { Text("Archive this account?") },
+            text = { Text("Archived accounts are hidden from the main list but their history stays in KhataGo.") },
+            confirmButton = { Button(onClick = { onArchive(canonicalType, id); showArchive = false }) { Text("Archive") } },
+            dismissButton = { OutlinedButton(onClick = { showArchive = false }) { Text("Cancel") } }
+        )
+    }
+    if (showDelete) {
+        AlertDialog(
+            onDismissRequest = { showDelete = false },
+            title = { Text("Delete this account?") },
+            text = { Text("Its linked history and payments may also be removed.") },
+            confirmButton = { Button(onClick = { onDelete(canonicalType, id); showDelete = false }) { Text("Delete") } },
+            dismissButton = { OutlinedButton(onClick = { showDelete = false }) { Text("Cancel") } }
+        )
+    }
 }
 
 @Composable
@@ -146,13 +203,19 @@ private fun DetailScaffold(
     title: String,
     onBack: () -> Unit,
     onAddPayment: () -> Unit,
+    onArchive: () -> Unit,
+    onDelete: () -> Unit,
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(title) },
             navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
-            actions = { TextButton(onClick = onAddPayment) { Text("Add Payment") } }
+            actions = {
+                TextButton(onClick = onArchive) { Text("Archive") }
+                TextButton(onClick = onDelete) { Text("Delete") }
+                TextButton(onClick = onAddPayment) { Text("Add Payment") }
+            }
         )
     }, content = content)
 }

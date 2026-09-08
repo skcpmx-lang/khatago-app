@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.shohan.khatago.core.now
 import com.shohan.khatago.core.today
 import com.shohan.khatago.core.toLocalDate
+import com.shohan.khatago.core.toLocalDateTime
 import com.shohan.khatago.core.toStorage
 import com.shohan.khatago.data.local.*
 import com.shohan.khatago.data.preferences.AppPreferencesState
@@ -525,8 +526,8 @@ class KhataGoRepository(
                     amountMinor = total,
                     type = TransactionType.SHOP_CREDIT,
                     relatedName = input.shopName,
-                    relatedEntityType = "SHOP_CREDIT",
-                    relatedEntityId = creditId,
+                    relatedEntityType = "SHOP",
+                    relatedEntityId = shopId,
                     cashEffect = TransactionCashEffect.NEUTRAL,
                     statusLabel = input.dueDate?.let { deriveCreditStatus(it, total, 0).label } ?: "Open",
                     notes = input.purchaseNotes
@@ -677,7 +678,7 @@ class KhataGoRepository(
     }
 
     suspend fun addIncome(input: AddIncomeInput) {
-        dao.insertIncome(
+        val incomeId = dao.insertIncome(
             IncomeEntity(
                 occurredAt = input.occurredAt,
                 amountMinor = input.amountMinor,
@@ -695,7 +696,7 @@ class KhataGoRepository(
                 type = TransactionType.INCOME,
                 relatedName = input.source,
                 relatedEntityType = "INCOME",
-                relatedEntityId = 0,
+                relatedEntityId = incomeId,
                 cashEffect = TransactionCashEffect.IN,
                 statusLabel = "Recorded",
                 notes = input.notes
@@ -705,7 +706,7 @@ class KhataGoRepository(
     }
 
     suspend fun addExpense(input: AddExpenseInput) {
-        dao.insertExpense(
+        val expenseId = dao.insertExpense(
             ExpenseEntity(
                 occurredAt = input.occurredAt,
                 amountMinor = input.amountMinor,
@@ -723,7 +724,7 @@ class KhataGoRepository(
                 type = TransactionType.EXPENSE,
                 relatedName = input.place,
                 relatedEntityType = "EXPENSE",
-                relatedEntityId = 0,
+                relatedEntityId = expenseId,
                 cashEffect = TransactionCashEffect.OUT,
                 statusLabel = "Recorded",
                 notes = input.notes
@@ -738,6 +739,50 @@ class KhataGoRepository(
             "LOAN" -> addLoanPayment(input.targetId, input.amountMinor, input.paidAt, input.method, input.notes)
             "EMI" -> addEmiPayment(input.targetId, input.amountMinor, input.paidAt, input.method, input.notes)
             "PERSONAL" -> addPersonalSettlement(input.targetId, input.amountMinor, input.paidAt, input.notes)
+        }
+    }
+
+    suspend fun archiveAccount(type: String, id: Long, archived: Boolean = true) {
+        when (type) {
+            "SHOP" -> dao.setShopArchived(id, archived)
+            "LOAN" -> dao.setLoanArchived(id, archived)
+            "EMI" -> dao.setEmiArchived(id, archived)
+            "PERSONAL" -> dao.setPersonalDebtArchived(id, archived)
+        }
+    }
+
+    suspend fun deleteAccount(type: String, id: Long) {
+        database.withTransaction {
+            when (type) {
+                "SHOP" -> {
+                    dao.deleteTransactionsByRelation("SHOP", id)
+                    dao.deleteShop(id)
+                }
+                "LOAN" -> {
+                    dao.deleteTransactionsByRelation("LOAN", id)
+                    dao.deleteLoan(id)
+                }
+                "EMI" -> {
+                    dao.deleteTransactionsByRelation("EMI", id)
+                    dao.deleteEmi(id)
+                }
+                "PERSONAL" -> {
+                    dao.deleteTransactionsByRelation("PERSONAL_DEBT", id)
+                    dao.deletePersonalDebt(id)
+                }
+            }
+        }
+    }
+
+    suspend fun deleteCashTransaction(transactionId: Long) {
+        database.withTransaction {
+            val transaction = dao.getTransactionById(transactionId) ?: throw BusinessRuleException("Transaction not found.")
+            when (transaction.type) {
+                TransactionType.INCOME -> if (transaction.relatedEntityId > 0L) dao.deleteIncome(transaction.relatedEntityId)
+                TransactionType.EXPENSE -> if (transaction.relatedEntityId > 0L) dao.deleteExpense(transaction.relatedEntityId)
+                else -> throw BusinessRuleException("Delete this record from its account screen.")
+            }
+            dao.deleteTransaction(transactionId)
         }
     }
 
@@ -922,12 +967,14 @@ class KhataGoRepository(
         )
     )
 
-    suspend fun restoreBackup(content: String) {
-        val payload = try {
-            json.decodeFromString<BackupPayload>(content)
-        } catch (_: Exception) {
-            throw BusinessRuleException("This backup file can't be read.")
-        }
+    fun parseBackup(content: String): BackupPayload = try {
+        json.decodeFromString<BackupPayload>(content)
+    } catch (_: Exception) {
+        throw BusinessRuleException("This backup file can't be read.")
+    }
+
+    suspend fun restoreBackup(content: String): BackupPayload {
+        val payload = parseBackup(content)
         validateBackup(payload)
         database.withTransaction {
             dao.clearTransactions()
@@ -974,7 +1021,12 @@ class KhataGoRepository(
             payload.customCategories.forEach { dao.insertCustomCategory(it) }
             payload.transactions.chunked(100).forEach { dao.insertTransactions(it) }
         }
+        return payload
     }
+
+    suspend fun exportTransactionsCsv(): String = com.shohan.khatago.export.CsvExporter.export(
+        dao.observeTransactions().firstValue()
+    )
 
     fun validateBackup(payload: BackupPayload) {
         BackupValidator.validate(payload)
@@ -1024,28 +1076,69 @@ object BackupValidator {
         if (payload.backupVersion != 1 || payload.schemaVersion != 1) {
             throw BusinessRuleException("This backup version isn't supported.")
         }
-        val shopIds = payload.shops.map { it.id }.toSet()
-        val creditIds = payload.shopCredits.map { it.id }.toSet()
-        val loanIds = payload.loans.map { it.id }.toSet()
-        val loanInstallmentIds = payload.loanInstallments.map { it.id }.toSet()
-        val emiIds = payload.emiPurchases.map { it.id }.toSet()
-        val emiInstallmentIds = payload.emiInstallments.map { it.id }.toSet()
-        val peopleIds = payload.people.map { it.id }.toSet()
-        val debtIds = payload.personalDebts.map { it.id }.toSet()
+        val shopIds = uniqueIds(payload.shops.map { it.id })
+        val creditIds = uniqueIds(payload.shopCredits.map { it.id })
+        val loanIds = uniqueIds(payload.loans.map { it.id })
+        val loanInstallmentIds = uniqueIds(payload.loanInstallments.map { it.id })
+        val emiIds = uniqueIds(payload.emiPurchases.map { it.id })
+        val emiInstallmentIds = uniqueIds(payload.emiInstallments.map { it.id })
+        val peopleIds = uniqueIds(payload.people.map { it.id })
+        val debtIds = uniqueIds(payload.personalDebts.map { it.id })
 
-        if (payload.shopCredits.any { it.shopId !in shopIds || it.totalAmountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.shopItems.any { it.creditId !in creditIds || it.lineTotalMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.shopPayments.any { it.shopId !in shopIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.shopPaymentAllocations.any { it.creditId !in creditIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.loanInstallments.any { it.loanId !in loanIds || it.scheduledAmountMinor < 0L || it.paidAmountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.loanPayments.any { it.loanId !in loanIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.loanPaymentAllocations.any { it.installmentId !in loanInstallmentIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.emiInstallments.any { it.emiId !in emiIds || it.scheduledAmountMinor < 0L || it.paidAmountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.emiPayments.any { it.emiId !in emiIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.emiPaymentAllocations.any { it.installmentId !in emiInstallmentIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.personalDebts.any { it.personId !in peopleIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.personalSettlements.any { it.debtId !in debtIds || it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
-        if (payload.income.any { it.amountMinor < 0L } || payload.expenses.any { it.amountMinor < 0L }) throw BusinessRuleException("This backup file can't be read.")
+        payload.userProfile?.createdAt?.validateDateTime()
+        payload.shops.forEach { require(it.name.isNotBlank()); it.createdAt.validateDateTime() }
+        payload.shopCredits.forEach { require(it.shopId in shopIds && it.totalAmountMinor >= 0L); it.purchaseDate.validateDate(); it.dueDate?.validateDate(); it.createdAt.validateDateTime() }
+        payload.shopItems.forEach { require(it.creditId in creditIds && it.lineTotalMinor >= 0L && it.unitPriceMinor >= 0L) }
+        payload.shopPayments.forEach { require(it.shopId in shopIds && it.amountMinor >= 0L); it.paidAt.validateDateTime() }
+        payload.shopPaymentAllocations.forEach { require(it.creditId in creditIds && it.amountMinor >= 0L) }
+
+        payload.loans.forEach {
+            require(it.name.isNotBlank() && it.totalPayableMinor >= 0L && it.loanAmountMinor >= 0L && it.installmentAmountMinor >= 0L)
+            it.dateTaken.validateDate(); it.firstDueDate.validateDate(); it.maturityDate.validateDate(); it.createdAt.validateDateTime()
+        }
+        payload.loanInstallments.forEach { require(it.loanId in loanIds && it.scheduledAmountMinor >= 0L && it.paidAmountMinor >= 0L); it.dueDate.validateDate() }
+        payload.loanPayments.forEach { require(it.loanId in loanIds && it.amountMinor >= 0L); it.paidAt.validateDateTime() }
+        payload.loanPaymentAllocations.forEach { require(it.installmentId in loanInstallmentIds && it.amountMinor >= 0L) }
+
+        payload.emiPurchases.forEach {
+            require(it.productName.isNotBlank() && it.totalPayableMinor >= 0L && it.totalPriceMinor >= 0L && it.installmentAmountMinor >= 0L)
+            it.purchaseDate.validateDate(); it.firstDueDate.validateDate(); it.createdAt.validateDateTime()
+        }
+        payload.emiInstallments.forEach { require(it.emiId in emiIds && it.scheduledAmountMinor >= 0L && it.paidAmountMinor >= 0L); it.dueDate.validateDate() }
+        payload.emiPayments.forEach { require(it.emiId in emiIds && it.amountMinor >= 0L); it.paidAt.validateDateTime() }
+        payload.emiPaymentAllocations.forEach { require(it.installmentId in emiInstallmentIds && it.amountMinor >= 0L) }
+
+        payload.people.forEach { require(it.name.isNotBlank()) }
+        payload.personalDebts.forEach { require(it.personId in peopleIds && it.amountMinor >= 0L); it.startedOn.validateDate(); it.expectedDate?.validateDate(); it.createdAt.validateDateTime() }
+        payload.personalSettlements.forEach { require(it.debtId in debtIds && it.amountMinor >= 0L); it.settledAt.validateDateTime() }
+        payload.income.forEach { require(it.amountMinor >= 0L && it.source.isNotBlank()); it.occurredAt.validateDateTime() }
+        payload.expenses.forEach { require(it.amountMinor >= 0L && it.category.isNotBlank()); it.occurredAt.validateDateTime() }
+        payload.transactions.forEach { require(it.amountMinor >= 0L && it.title.isNotBlank()); it.occurredAt.validateDateTime() }
+    }
+
+    private fun uniqueIds(ids: List<Long>): Set<Long> {
+        if (ids.any { it <= 0L } || ids.size != ids.toSet().size) throw BusinessRuleException("This backup file can't be read.")
+        return ids.toSet()
+    }
+
+    private fun require(value: Boolean) {
+        if (!value) throw BusinessRuleException("This backup file can't be read.")
+    }
+
+    private fun String.validateDate() {
+        try {
+            toLocalDate()
+        } catch (_: Exception) {
+            throw BusinessRuleException("This backup file can't be read.")
+        }
+    }
+
+    private fun String.validateDateTime() {
+        try {
+            toLocalDateTime()
+        } catch (_: Exception) {
+            throw BusinessRuleException("This backup file can't be read.")
+        }
     }
 }
 

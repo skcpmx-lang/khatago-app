@@ -22,6 +22,7 @@ enum class AddSheetType {
     SHOP_CREDIT,
     LOAN,
     EMI,
+    PERSONAL_DEBT,
     PERSONAL_BORROWED,
     PERSONAL_LENT,
     INCOME,

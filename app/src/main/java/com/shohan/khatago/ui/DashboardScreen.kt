@@ -137,7 +137,7 @@ fun DashboardScreen(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     KhataActionTile("EMI", "Track installments", Icons.Outlined.CreditCard, { onAction(AddSheetType.EMI) }, Modifier.weight(1f))
-                    KhataActionTile("Personal Debt", "Borrowed or lent", Icons.Outlined.ReceiptLong, { onAction(AddSheetType.PERSONAL_BORROWED) }, Modifier.weight(1f))
+                    KhataActionTile("Personal Debt", "Borrowed or lent", Icons.Outlined.ReceiptLong, { onAction(AddSheetType.PERSONAL_DEBT) }, Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     KhataActionTile("Income", "Log earnings", Icons.Outlined.AttachMoney, { onAction(AddSheetType.INCOME) }, Modifier.weight(1f))

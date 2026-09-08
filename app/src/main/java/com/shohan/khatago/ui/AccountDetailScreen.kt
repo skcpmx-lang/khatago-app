@@ -198,6 +198,7 @@ fun AccountDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DetailScaffold(
     title: String,

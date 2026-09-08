@@ -13,6 +13,7 @@ import com.shohan.khatago.ui.components.KhataEmptyState
 import com.shohan.khatago.ui.components.KhataSectionHeader
 import com.shohan.khatago.ui.components.KhataTransactionRow
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     query: String,

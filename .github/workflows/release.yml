@@ -1,0 +1,85 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - 'v1.0.0'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Check signing secrets
+        run: |
+          if [ -z "${{ secrets.KHATAGO_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.KHATAGO_KEY_ALIAS }}" ] || [ -z "${{ secrets.KHATAGO_KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.KHATAGO_KEY_PASSWORD }}" ]; then
+            echo "Release signing credentials are not available."
+            exit 1
+          fi
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KHATAGO_KEYSTORE_BASE64 }}" | base64 --decode > khatago-release.jks
+
+      - name: Build release APK
+        env:
+          KHATAGO_KEYSTORE_PATH: ${{ github.workspace }}/khatago-release.jks
+          KHATAGO_KEY_ALIAS: ${{ secrets.KHATAGO_KEY_ALIAS }}
+          KHATAGO_KEYSTORE_PASSWORD: ${{ secrets.KHATAGO_KEYSTORE_PASSWORD }}
+          KHATAGO_KEY_PASSWORD: ${{ secrets.KHATAGO_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.apk
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: KhataGo v1.0.0
+          files: app/build/outputs/apk/release/*.apk
+          body: |
+            ## Overview
+            KhataGo v1.0.0
+
+            All your finances, in one place.
+
+            ## Features
+            - Offline-first local finance tracking
+            - Shop Credit
+            - Loans
+            - EMI
+            - Personal Debt
+            - Income and Expense tracking
+            - Dashboard and reports
+
+            ## Privacy
+            - No ads
+            - No subscription
+            - No paid APIs
+            - No tracking
+
+            ## Installation
+            Download the APK and install it on an Android device.
+
+            ## Developer
+            Shohan Khan
+            helloiamshohan@gmail.com

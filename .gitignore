@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+local.properties
+
+# Build outputs
+build/
+*/build/
+
+# Android Studio
+.idea/
+*.iml
+captures/
+.navigation/
+
+# OS files
+.DS_Store
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+
+# Generated
+app/schemas/

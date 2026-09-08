@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
@@ -31,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.fragment.app.FragmentActivity
 import androidx.work.WorkManager
 import com.shohan.khatago.AppContainer
 import com.shohan.khatago.data.AccountsOverview
@@ -55,7 +55,7 @@ fun KhataGoApp(container: AppContainer) {
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
-    val activity = context as? ComponentActivity
+    val activity = context as? FragmentActivity
     var lockError by remember { mutableStateOf<String?>(null) }
     var isLocked by remember(preferences.appLockEnabled, preferences.pinHash, preferences.pinSalt) {
         mutableStateOf(preferences.appLockEnabled && !preferences.pinHash.isNullOrBlank() && !preferences.pinSalt.isNullOrBlank())
@@ -239,7 +239,7 @@ private fun HomeRoute(
 ) {
     val repository = container.repository
     val context = LocalContext.current
-    val activity = context as? ComponentActivity
+    val activity = context as? FragmentActivity
     val dashboard by repository.observeDashboard().collectAsStateWithLifecycle(initialValue = DashboardSnapshot())
     val accounts by repository.observeAccountsOverview().collectAsStateWithLifecycle(
         initialValue = AccountsOverview(0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())

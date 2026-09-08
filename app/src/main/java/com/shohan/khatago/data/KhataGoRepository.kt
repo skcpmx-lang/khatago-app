@@ -999,7 +999,7 @@ class KhataGoRepository(
             dao.clearCustomCategories()
             dao.clearUserProfile()
 
-            payload.userProfile?.let(dao::upsertUserProfile)
+            payload.userProfile?.let { dao.upsertUserProfile(it) }
             payload.shops.forEach { dao.insertShop(it) }
             payload.shopCredits.forEach { dao.insertShopCredit(it) }
             payload.shopItems.chunked(100).forEach { dao.insertShopCreditItems(it) }
@@ -1382,5 +1382,7 @@ private fun ReportRange.resolveDateRange(): Pair<LocalDate, LocalDate> {
         ReportRange.THIS_YEAR -> today.withDayOfYear(1) to today.withDayOfYear(today.lengthOfYear())
     }
 }
+
+private suspend fun <T> Flow<T>.firstValue(): T = first()
 
 private suspend fun <T> Flow<T>.firstValue(): T = first()

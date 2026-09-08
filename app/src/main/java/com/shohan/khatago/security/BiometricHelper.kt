@@ -1,14 +1,15 @@
 package com.shohan.khatago.security
 
-import androidx.activity.ComponentActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 
-class BiometricHelper(private val activity: ComponentActivity) {
+class BiometricHelper(private val activity: FragmentActivity) {
     fun canAuthenticate(): Boolean {
         val manager = BiometricManager.from(activity)
-        return manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        return manager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun authenticate(onSuccess: () -> Unit, onError: (String) -> Unit) {
@@ -22,10 +23,11 @@ class BiometricHelper(private val activity: ComponentActivity) {
                 onError(errString.toString())
             }
         })
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock KhataGo")
             .setSubtitle("Use your biometric or device credential")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .setAllowedAuthenticators(authenticators)
             .build()
         prompt.authenticate(promptInfo)
     }

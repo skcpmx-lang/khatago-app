@@ -3,8 +3,10 @@ package com.shohan.khatago.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,21 +25,23 @@ fun PinSetupDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { if (it.length <= 8) pin = it.filter(Char::isDigit) },
+                    onValueChange = { value -> if (value.length <= 8) pin = value.filter(Char::isDigit) },
                     label = { Text("PIN") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = confirmPin,
-                    onValueChange = { if (it.length <= 8) confirmPin = it.filter(Char::isDigit) },
+                    onValueChange = { value -> if (value.length <= 8) confirmPin = value.filter(Char::isDigit) },
                     label = { Text("Confirm PIN") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (error != null) {
+                    Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                }
             }
         },
         confirmButton = {
@@ -58,7 +62,7 @@ fun AppLockScreen(
     biometricEnabled: Boolean,
     error: String?,
     onPinSubmit: (String) -> Unit,
-    onBiometric: (() -> Unit)?,
+    onBiometric: (() -> Unit)?
 ) {
     var pin by rememberSaveable { mutableStateOf("") }
     Box(
@@ -75,9 +79,9 @@ fun AppLockScreen(
                 Text("Unlock your finances", style = MaterialTheme.typography.headlineMedium)
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { if (it.length <= 8) pin = it.filter(Char::isDigit) },
+                    onValueChange = { value -> if (value.length <= 8) pin = value.filter(Char::isDigit) },
                     label = { Text("Enter PIN") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -86,7 +90,9 @@ fun AppLockScreen(
                 if (biometricEnabled && onBiometric != null) {
                     OutlinedButton(onClick = onBiometric, modifier = Modifier.fillMaxWidth()) { Text("Use biometric") }
                 }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }

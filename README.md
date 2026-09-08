@@ -2,38 +2,36 @@
 
 **All your finances, in one place.**
 
-KhataGo is an offline-first Android personal finance app built with Kotlin, Jetpack Compose, Room, Coroutines, Flow, DataStore, and WorkManager-oriented architecture.
+KhataGo is a local-first Android personal finance app built with Kotlin, Jetpack Compose, Room, Coroutines, Flow, DataStore, and WorkManager-oriented scheduling.
 
-## Current implementation status
+## Current implementation snapshot
 
-This repository now contains a fresh KhataGo Android codebase created from scratch. The current build focuses on the core foundation:
+This repository contains a fresh KhataGo codebase created from scratch on branch `arena/01a07f49-khatago-app`.
 
+### Implemented now
 - onboarding and setup flow
 - light-only Compose design system
-- local Room database schema for finance modules
-- dashboard with real database-driven totals and empty states
-- accounts overview
-- account detail screens
-- transaction history
-- reports with local insights
+- Room database schema for shops, loans, EMI, personal debt, income, expense, and transactions
+- dashboard with real database-driven balances, due items, recent activity, and six quick actions
+- accounts overview with tabs
+- account detail screens for shop credit, loans, EMI, and personal debt
+- transaction history with income/expense deletion flow
+- reports with local rule-based insights
 - add flows for shop credit, loans, EMI, personal debt, income, expense, and payments
-- JSON backup engine in the repository layer
+- JSON backup export and restore validation flow
+- CSV export flow
+- PDF export flow
+- reminder scheduling foundation with WorkManager and notifications
+- PIN setup and biometric unlock foundation
 
-Some specification items are **not fully finished yet**, including:
+### Still incomplete
+- exact official binary logo asset integration from the attached file path was not possible in the sandbox because the referenced upload files were not present on disk
+- edit flows for every entity are not complete yet
+- delete/edit coverage for every payment and child record is not complete yet
+- reminder UX and timing are basic
+- runtime verification, APK verification, and release verification are still pending
 
-- official attached logo integration (the current repository uses a temporary technical placeholder mark because no official asset was available in this Arena session)
-- SAF-connected backup/restore UI
-- CSV export UI flow
-- PDF export UI flow
-- notification workflow wiring
-- app lock and biometric gate
-- full edit/delete/archive flows
-- migration evolution beyond schema version 1
-- release signing and GitHub release verification
-
-## Features in progress
-
-### Implemented foundation
+## Features
 - Shop Credit
 - Loans
 - EMI
@@ -43,24 +41,19 @@ Some specification items are **not fully finished yet**, including:
 - Payments
 - Dashboard
 - Reports
-- Analytics-style overview cards
 - Search
-- Backup serialization engine
-
-### Planned next milestones
-- Restore UI validation flow
+- Backup
+- Restore
 - CSV export
-- PDF report generation
-- notification reminders
-- app lock
-- edit/delete/archive actions
-- CI verification and release packaging
+- PDF export
+- Notifications foundation
+- App lock foundation
 
 ## Architecture
-
-- **Presentation:** Jetpack Compose screens and reusable design components
-- **Data:** Room entities and DAO, local-first repository, DataStore preferences
-- **Domain:** deterministic financial engines for schedules, status derivation, insights, and money formatting
+- **Presentation:** Jetpack Compose + Material 3
+- **Data:** Room + repository layer + DataStore
+- **Domain:** deterministic money, schedule, status, and insight engines
+- **Background:** WorkManager reminder scheduling
 
 See:
 - [ARCHITECTURE.md](ARCHITECTURE.md)
@@ -70,11 +63,8 @@ See:
 - [RELEASE.md](RELEASE.md)
 
 ## Privacy
-
 KhataGo is designed to be:
-
 - Offline-first
-- Local-first
 - No ads
 - No subscription
 - No paid APIs
@@ -83,7 +73,6 @@ KhataGo is designed to be:
 - No external financial backend
 
 ## Build
-
 Local Android build tooling was **not available** in this Arena environment.
 
 When Java + Android tooling are available:
@@ -92,21 +81,20 @@ When Java + Android tooling are available:
 ./gradlew test
 ./gradlew lint
 ./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
-GitHub Actions workflows are included under `.github/workflows/`.
-
 ## Testing
-
-Unit tests cover:
-
-- money precision formatting and parsing
-- installment schedule generation
-- due and overdue status derivation
-- insight rules
+Unit tests currently cover:
+- money parsing and formatting
+- schedule generation
+- installment status rules
+- cash flow calculation
+- insight generation
 - backup validation rules
+- CSV escaping
+- PIN hashing verification
 
 ## Developer
-
 Created by **Shohan Khan**  
 Contact: **helloiamshohan@gmail.com**

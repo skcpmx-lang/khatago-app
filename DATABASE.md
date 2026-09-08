@@ -3,7 +3,6 @@
 KhataGo uses Room with schema version `1`.
 
 ## Implemented entities
-
 - `UserProfileEntity`
 - `ShopEntity`
 - `ShopCreditEntity`
@@ -26,15 +25,14 @@ KhataGo uses Room with schema version `1`.
 - `ExpenseEntity`
 - `FinancialTransactionEntity`
 
-## Notes on integrity
-
-- foreign keys are enabled through Room entity declarations
+## Integrity rules implemented
+- foreign keys connect parent accounts to child schedules, items, payments, and allocations
+- indexes exist on major search/date columns
 - payment allocations are stored explicitly for shop credit, loan, and EMI payments
-- personal debt settlements attach directly to a single debt record
-- dashboard and reports are derived from source records rather than duplicated balance fields
+- dashboard and reports derive balances from source records instead of storing duplicated totals
+- top-level account archive flags exist for shops, loans, EMI purchases, and personal debt
 
 ## Migration status
-
-- current project is at initial schema version `1`
-- no destructive migration fallback is used
-- future schema changes must add explicit Room migrations
+- current schema version: `1`
+- `fallbackToDestructiveMigration()` is not used
+- future schema changes must add explicit migrations before release verification

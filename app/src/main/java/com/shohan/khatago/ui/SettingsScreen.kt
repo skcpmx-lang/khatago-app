@@ -1,11 +1,14 @@
 package com.shohan.khatago.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.shohan.khatago.R
 import com.shohan.khatago.data.preferences.AppPreferencesState
 
 @Composable
@@ -59,6 +62,11 @@ fun SettingsScreen(
         }
         item {
             SettingsSection("About KhataGo") {
+                Image(
+                    painter = painterResource(R.drawable.ic_khatago_mark),
+                    contentDescription = "KhataGo mark",
+                    modifier = Modifier.size(56.dp)
+                )
                 Text("KhataGo", style = MaterialTheme.typography.titleMedium)
                 Text("All your finances, in one place.", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(6.dp))

@@ -1,31 +1,29 @@
 # Financial Logic
 
 ## Money precision
-
-All financial amounts are stored as `Long` minor units.
+All money values are stored as `Long` minor units.
 
 Example:
 - `৳100.50` -> `10050`
 
-KhataGo does not use `Float` or `Double` for money.
+KhataGo does not use `Float` or `Double` for money calculations.
 
-## Cash flow semantics
-
-### Counted as income
+## Transaction semantics
+### Income in reports
 - `INCOME`
-- `PERSONAL_RETURN` increases cash on hand but is **not** treated as income in current reports unless specifically added as income
 
-### Counted as expense
+### Expense in reports
 - `EXPENSE`
 
-### Counted as payments
+### Payments tracked separately
 - `SHOP_PAYMENT`
 - `LOAN_PAYMENT`
 - `EMI_PAYMENT`
 - `PERSONAL_REPAYMENT`
+- `PERSONAL_RETURN`
 
-### Neutral obligation creation
-These create liabilities or receivables but do not directly change cash flow in current logic:
+### Neutral obligation creation events
+These create obligations or receivables, but they are not automatically treated as income or cash expense in current report totals:
 - `SHOP_CREDIT`
 - `LOAN`
 - `EMI_PURCHASE`
@@ -33,38 +31,47 @@ These create liabilities or receivables but do not directly change cash flow in 
 - `PERSONAL_LENDING`
 
 ## Outstanding totals
-
-Current total outstanding is calculated as:
-
+Current total outstanding debt includes:
 - shop credit remaining
 - loan remaining
 - EMI remaining
 - personal borrowed remaining
 
-Personal lent money is tracked separately and is not included in outstanding debt.
+Personal lent money is tracked separately and is not counted as debt owed by the user.
 
 ## Overpayment protection
+Before a payment is saved, KhataGo checks the actual remaining amount.
 
-Before saving a payment, KhataGo checks the remaining due amount.
-
-If a new payment is larger than the amount due, the operation fails with:
+If a payment is larger than the amount due, the operation fails with:
 
 > This payment is higher than the amount due.
 
-## Installment status rules
-
-Derived rules currently implemented:
-
+## Installment rules
+Current derived rules:
 - paid >= scheduled -> Paid
-- paid > 0 and paid < scheduled and now > due date -> Overdue
+- paid > 0 and paid < scheduled and current date > due date -> Overdue
 - paid > 0 and paid < scheduled -> Partially Paid
-- paid == 0 and today == due date -> Due Today
-- paid == 0 and today > due date -> Overdue
+- paid == 0 and current date == due date -> Due Today
+- paid == 0 and current date > due date -> Overdue
 - otherwise -> Upcoming
 
-## Schedule generation
+A fully paid installment never remains overdue.
 
+## Schedule generation
 - weekly schedules use `plusWeeks`
 - monthly schedules use `plusMonths`
-- month-end and leap-year handling rely on `java.time`
-- the final installment receives any remaining rounding difference
+- Java time handles month-end, leap years, and year transitions
+- the final installment receives any remainder from division so totals stay exact
+
+## Payment allocation
+### Shop payments
+Shop payments are allocated oldest-first across outstanding shop credit purchases.
+
+### Loan payments
+Loan payments are allocated installment-by-installment in schedule order.
+
+### EMI payments
+EMI payments are allocated installment-by-installment in schedule order.
+
+### Personal debt settlements
+Each settlement attaches directly to one personal debt record.

@@ -30,15 +30,20 @@ jobs:
 
       - name: Run unit tests
         run: |
+          mkdir -p app/schemas
           set -o pipefail
-          ./gradlew test 2>&1 | tee gradle-test.log
+          ./gradlew test --stacktrace --info 2>&1 | tee gradle-test.log
 
       - name: Summarize test failure
         if: failure()
         run: |
           echo "### Gradle test failure" >> "$GITHUB_STEP_SUMMARY"
+          echo "#### Extracted error lines" >> "$GITHUB_STEP_SUMMARY"
+          grep -nE "(^e: | error: |ERROR:|Exception:|Room|KSP|ksp)" gradle-test.log | tail -200 >> "$GITHUB_STEP_SUMMARY" || true
+          echo "#### Log tail" >> "$GITHUB_STEP_SUMMARY"
           tail -200 gradle-test.log >> "$GITHUB_STEP_SUMMARY"
-          msg=$(tail -40 gradle-test.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+          msg=$(grep -E "(^e: | error: |ERROR:)" gradle-test.log | tail -40 | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
+          if [ -z "$msg" ]; then msg=$(tail -40 gradle-test.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g'); fi
           echo "::error title=Gradle test failure::$msg"
 
       - name: Run lint

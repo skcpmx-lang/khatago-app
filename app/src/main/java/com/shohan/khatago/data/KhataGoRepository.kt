@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
 
@@ -913,12 +914,16 @@ class KhataGoRepository(
 
     suspend fun addPersonalSettlement(debtId: Long, amountMinor: Long, settledAt: String, notes: String) {
         database.withTransaction {
-            val debts = dao.observePersonalDebts().firstValue()
-            val people = dao.observePeople().firstValue()
-            val settlements = dao.observePersonalSettlements().firstValue().filter { it.debtId == debtId }
-            val debt = debts.firstOrNull { it.id == debtId } ?: throw BusinessRuleException("Record not found.")
-            val person = people.firstOrNull { it.id == debt.personId } ?: throw BusinessRuleException("Person not found.")
-            val settled = settlements.sumOf { it.amountMinor }
+            val debts: List<PersonalDebtEntity> = dao.observePersonalDebts().firstValue()
+            val people: List<PersonEntity> = dao.observePeople().firstValue()
+            val settlements: List<PersonalSettlementEntity> = dao.observePersonalSettlements()
+                .firstValue()
+                .filter { settlement -> settlement.debtId == debtId }
+            val debt: PersonalDebtEntity = debts.firstOrNull { debtRecord -> debtRecord.id == debtId }
+                ?: throw BusinessRuleException("Record not found.")
+            val person: PersonEntity = people.firstOrNull { personRecord -> personRecord.id == debt.personId }
+                ?: throw BusinessRuleException("Person not found.")
+            val settled = settlements.fold(0L) { total, settlement -> total + settlement.amountMinor }
             val remaining = maxOf(0L, debt.amountMinor - settled)
             if (amountMinor > remaining) throw BusinessRuleException("This payment is higher than the amount due.")
             dao.insertPersonalSettlement(PersonalSettlementEntity(debtId = debtId, settledAt = settledAt, amountMinor = amountMinor, notes = notes))
@@ -940,8 +945,8 @@ class KhataGoRepository(
         }
     }
 
-    suspend fun exportBackup(preferences: AppPreferencesState): String = json.encodeToString(
-        BackupPayload(
+    suspend fun exportBackup(preferences: AppPreferencesState): String {
+        val payload = BackupPayload(
             userProfile = dao.observeUserProfile().firstValue(),
             shops = dao.observeShops().firstValue(),
             shopCredits = dao.observeShopCredits().firstValue(),
@@ -965,7 +970,8 @@ class KhataGoRepository(
             transactions = dao.observeTransactions().firstValue(),
             preferences = preferences
         )
-    )
+        return json.encodeToString(payload)
+    }
 
     fun parseBackup(content: String): BackupPayload = try {
         json.decodeFromString<BackupPayload>(content)
@@ -1382,7 +1388,5 @@ private fun ReportRange.resolveDateRange(): Pair<LocalDate, LocalDate> {
         ReportRange.THIS_YEAR -> today.withDayOfYear(1) to today.withDayOfYear(today.lengthOfYear())
     }
 }
-
-private suspend fun <T> Flow<T>.firstValue(): T = first()
 
 private suspend fun <T> Flow<T>.firstValue(): T = first()

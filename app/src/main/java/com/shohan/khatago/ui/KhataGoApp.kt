@@ -86,8 +86,8 @@ fun KhataGoApp(container: AppContainer) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { _ ->
-        Box(Modifier.fillMaxSize()) {
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
             NavHost(navController = navController, startDestination = Routes.ONBOARDING, modifier = Modifier.fillMaxSize()) {
                 composable(Routes.ONBOARDING) {
                     OnboardingScreen(

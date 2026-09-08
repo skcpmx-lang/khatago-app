@@ -1,6 +1,7 @@
 package com.shohan.khatago.notifications
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -32,7 +33,7 @@ object ReminderScheduler {
 
     fun cancel(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-        NotificationManagerCompat.from(context).cancelAll()
+        cancelNotifications(context)
     }
 
     fun createChannel(context: Context) {
@@ -50,6 +51,7 @@ object ReminderScheduler {
         return Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
+    @SuppressLint("MissingPermission")
     internal fun notify(context: Context, id: Int, title: String, body: String) {
         if (!hasNotificationPermission(context)) return
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -61,6 +63,12 @@ object ReminderScheduler {
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(context).notify(id, notification)
+    }
+
+    @SuppressLint("MissingPermission")
+    internal fun cancelNotifications(context: Context) {
+        if (!hasNotificationPermission(context)) return
+        NotificationManagerCompat.from(context).cancelAll()
     }
 }
 
@@ -87,7 +95,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 "Upcoming payments",
                 "You have ${snapshot.upcomingItems.size} payments due soon."
             )
-            else -> NotificationManagerCompat.from(applicationContext).cancelAll()
+            else -> ReminderScheduler.cancelNotifications(applicationContext)
         }
         return Result.success()
     }
